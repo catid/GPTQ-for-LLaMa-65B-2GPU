@@ -9,6 +9,8 @@ from quant import *
 
 from transformers import AutoTokenizer
 
+import accelerate
+
 DEV = torch.device('cuda:0')
 
 def get_llama(model):
@@ -126,7 +128,13 @@ if __name__ == '__main__':
         model = get_llama(args.model)
         model.eval()
         
-    model.to(DEV)
+    #model.to(DEV)
+
+    max_memory = accelerate.utils.get_balanced_memory(model)
+    device_map = accelerate.infer_auto_device_map(model, max_memory=max_memory, no_split_module_classes=["LlamaDecoderLayer"])
+    print("Using the following device map for the quantized model:", device_map)
+    model = accelerate.dispatch_model(model, device_map=device_map, offload_buffers=True)
+
     tokenizer = AutoTokenizer.from_pretrained(args.model, use_fast=False)
     input_ids = tokenizer.encode(args.text, return_tensors="pt").to(DEV)
 
